@@ -1,5 +1,5 @@
 // ============================================================
-// NIKiSUN Smart Battery Hub — Express Server
+// FARATECH Smart Battery Hub — Express Server
 // Serves the frontend and exposes a simple REST API.
 // ============================================================
 
@@ -57,7 +57,7 @@ app.get('/api/devices/:id/readings', (req, res) => {
 
 app.listen(PORT, () => {
   console.log('');
-  console.log('  ⚡  NIKiSUN Smart Battery Hub');
+  console.log('  ⚡  FARATECH Smart Battery Hub');
   console.log(`  →   http://localhost:${PORT}`);
   console.log('  ⚠   Data is SIMULATED — no real hardware connected');
   console.log('');

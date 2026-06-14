@@ -1,6 +1,6 @@
-# NIKiSUN Smart Battery Hub
+# FARATECH Smart Battery Hub
 
-A web dashboard for monitoring and managing NIKiSUN battery systems.
+A web dashboard for monitoring and managing FARATECH battery systems.
 
 > **This is a prototype demo using 100% simulated data.**  
 > No real hardware is required. All battery readings are generated automatically
@@ -25,7 +25,7 @@ Then open **http://localhost:3000** in your browser.
 |-----|-------------|
 | **Dashboard** | Live view of all batteries — charge %, voltage, current, temperature, health score. Auto-refreshes every 3 seconds. |
 | **My Devices** | List of registered batteries. Use the form to register new ones. |
-| **Products** | NIKiSUN product catalog with full specs and pricing. |
+| **Products** | FARATECH product catalog with full specs and pricing. |
 
 ---
 
@@ -82,4 +82,4 @@ See the Product Requirements Document (PRD) for the full feature roadmap.
 
 ---
 
-*Prototype v0.1 — NIKiSUN Smart Battery Hub — June 2026*
+*Prototype v0.1 — FARATECH Smart Battery Hub — June 2026*

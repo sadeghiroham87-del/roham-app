@@ -1,5 +1,5 @@
 // ============================================================
-// NIKiSUN Smart Battery Hub — In-Memory Data Store
+// FARATECH Smart Battery Hub — In-Memory Data Store
 //
 // NOTE: All data here is SIMULATED.
 // No real hardware or BMS is connected in this prototype.
@@ -11,7 +11,7 @@
 const products = [
   {
     id: 'niku-home-5',
-    name: 'NIKiSUN Home 5',
+    name: 'FARATECH Home 5',
     category: 'Home Energy Storage',
     capacity: '5 kWh',
     voltage: '48V',
@@ -28,7 +28,7 @@ const products = [
   },
   {
     id: 'niku-home-10',
-    name: 'NIKiSUN Home 10',
+    name: 'FARATECH Home 10',
     category: 'Home Energy Storage',
     capacity: '10 kWh',
     voltage: '48V',
@@ -45,7 +45,7 @@ const products = [
   },
   {
     id: 'niku-pro-20',
-    name: 'NIKiSUN Pro 20',
+    name: 'FARATECH Pro 20',
     category: 'Commercial',
     capacity: '20 kWh',
     voltage: '96V',
@@ -62,7 +62,7 @@ const products = [
   },
   {
     id: 'niku-ups-3',
-    name: 'NIKiSUN UPS 3',
+    name: 'FARATECH UPS 3',
     category: 'Backup Power',
     capacity: '3 kWh',
     voltage: '24V',
@@ -85,7 +85,7 @@ const devices = [
   {
     id: 'dev-001',
     name: 'Living Room Battery',
-    serialNumber: 'NIK-2024-00001',
+    serialNumber: 'FAR-2024-00001',
     productId: 'niku-home-5',
     location: 'Home',
     installedDate: '2024-01-15',
@@ -94,7 +94,7 @@ const devices = [
   {
     id: 'dev-002',
     name: 'Office UPS',
-    serialNumber: 'NIK-2024-00042',
+    serialNumber: 'FAR-2024-00042',
     productId: 'niku-ups-3',
     location: 'Office',
     installedDate: '2024-03-10',
@@ -103,7 +103,7 @@ const devices = [
   {
     id: 'dev-003',
     name: 'Solar Storage Unit',
-    serialNumber: 'NIK-2024-00078',
+    serialNumber: 'FAR-2024-00078',
     productId: 'niku-home-10',
     location: 'Rooftop',
     installedDate: '2024-06-01',
@@ -112,7 +112,7 @@ const devices = [
   {
     id: 'dev-004',
     name: 'Warehouse Backup',
-    serialNumber: 'NIK-2024-00099',
+    serialNumber: 'FAR-2024-00099',
     productId: 'niku-pro-20',
     location: 'Warehouse A',
     installedDate: '2024-09-15',
@@ -121,7 +121,7 @@ const devices = [
   {
     id: 'dev-005',
     name: 'Workshop Power Pack',
-    serialNumber: 'NIK-2025-00012',
+    serialNumber: 'FAR-2025-00012',
     productId: 'niku-ups-3',
     location: 'Workshop',
     installedDate: '2025-01-20',

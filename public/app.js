@@ -1,6 +1,6 @@
 'use strict';
 // ============================================================
-// NIKiSUN Smart Battery Hub — Frontend Application
+// FARATECH Smart Battery Hub — Frontend Application
 //
 // Polls the local Express API every 3 seconds and updates
 // the dashboard with the latest simulated battery readings.
@@ -12,10 +12,10 @@
 // Used as an immediate fallback so the dropdown always has options
 // even if the API request hasn't completed yet or the server is unreachable.
 const PRODUCTS = [
-  { id: 'niku-home-5',  name: 'NIKiSUN Home 5',  capacity: '5 kWh'  },
-  { id: 'niku-home-10', name: 'NIKiSUN Home 10', capacity: '10 kWh' },
-  { id: 'niku-pro-20',  name: 'NIKiSUN Pro 20',  capacity: '20 kWh' },
-  { id: 'niku-ups-3',   name: 'NIKiSUN UPS 3',   capacity: '3 kWh'  },
+  { id: 'niku-home-5',  name: 'FARATECH Home 5',  capacity: '5 kWh'  },
+  { id: 'niku-home-10', name: 'FARATECH Home 10', capacity: '10 kWh' },
+  { id: 'niku-pro-20',  name: 'FARATECH Pro 20',  capacity: '20 kWh' },
+  { id: 'niku-ups-3',   name: 'FARATECH UPS 3',   capacity: '3 kWh'  },
 ];
 
 

@@ -1,7 +1,7 @@
 {
   "name": "smart-battery-hub",
   "version": "0.1.0",
-  "description": "NIKiSUN Smart Battery Hub — prototype demo with simulated data",
+  "description": "FARATECH Smart Battery Hub — prototype demo with simulated data",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js"
