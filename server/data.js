@@ -129,83 +129,71 @@ const devices = [
   }
 ];
 
-// ----- Live Readings -----
-// Keyed by device ID. Updated every 3 seconds by the simulator below.
-const readings = {};
+// ----- Seed States -----
+// Fixed starting points for each pre-loaded device.
+// getCurrentReading() oscillates around these values using the current time,
+// so readings change on every API call without needing setInterval or stored state.
+// This works correctly on both local Node.js and Vercel serverless.
+const seedStates = {
+  'dev-001': { soc: 73.2, temperature: 26.8, isCharging: true,  healthScore: 92 },
+  'dev-002': { soc: 88.5, temperature: 24.1, isCharging: false, healthScore: 88 },
+  'dev-003': { soc: 47.6, temperature: 29.4, isCharging: true,  healthScore: 96 },
+  'dev-004': { soc: 14.3, temperature: 33.7, isCharging: false, healthScore: 74 },
+  'dev-005': { soc: 61.8, temperature: 27.2, isCharging: false, healthScore: 91 },
+};
 
-// ----- Simulator -----
-// Generates a realistic-looking reading that drifts from the previous one.
-// Charging state flips automatically at the boundaries so SOC never flatlines.
-function generateReading(deviceId, previous) {
+// Seeds for devices registered at runtime (survive only while the process is alive)
+const dynamicSeeds = {};
+
+// ----- getCurrentReading -----
+// Computes a realistic battery reading from the current timestamp.
+// Each device has a unique phase offset (derived from its seed SOC) so they
+// don't all move in sync — the dashboard shows varied states at all times.
+function getCurrentReading(deviceId) {
   const device = devices.find(d => d.id === deviceId);
   if (!device) return null;
 
-  const product = products.find(p => p.id === device.productId);
+  const product        = products.find(p => p.id === device.productId);
   const nominalVoltage = product ? parseInt(product.voltage) : 48;
+  const seed           = seedStates[deviceId] || dynamicSeeds[deviceId]
+                         || { soc: 65, temperature: 26, isCharging: true, healthScore: 88 };
 
-  // Start with sensible defaults on first call
-  const prevSOC     = previous ? previous.soc         : 55 + Math.random() * 30;
-  const prevTemp    = previous ? previous.temperature  : 24 + Math.random() * 4;
-  const isCharging  = previous ? previous.isCharging   : Math.random() > 0.5;
+  const t     = Date.now() / 1000;                       // seconds since epoch
+  const phase = (seed.soc / 100) * Math.PI * 2;          // unique phase per device
 
-  // SOC drifts slowly each tick
-  let newSOC = prevSOC + (isCharging ? 0.4 : -0.3) + (Math.random() - 0.5) * 0.2;
-  newSOC = Math.max(5, Math.min(100, newSOC));
+  // SOC oscillates ±8% around the seed over a 20-minute cycle, plus a small ±0.4% ripple
+  const slowWave   = Math.sin((t / 1200) * Math.PI * 2 + phase) * 8;
+  const fastRipple = Math.sin((t / 60)   * Math.PI * 2 + phase) * 0.4;
+  const soc        = Math.max(5, Math.min(100, seed.soc + slowWave + fastRipple));
 
-  // Flip charging direction at boundaries
-  let newCharging = isCharging;
-  if (newSOC >= 99.5) newCharging = false;
-  if (newSOC <= 8)    newCharging = true;
+  // Charging state follows the direction the SOC is moving
+  const derivative = Math.cos((t / 1200) * Math.PI * 2 + phase);
+  const isCharging = seed.isCharging ? derivative > -0.3 : derivative > 0.3;
 
-  // LiFePO4 voltage curve — fairly flat with a slight rise near full charge
-  const voltage = nominalVoltage * (0.92 + (newSOC / 100) * 0.12) + (Math.random() - 0.5) * 0.3;
-
-  // Positive current = charging, negative = discharging
-  const magnitude = newCharging ? 10 + Math.random() * 15 : 5 + Math.random() * 20;
-  const current   = newCharging ? magnitude : -magnitude;
-
-  // Temperature drifts gently and rises a little while charging
-  let newTemp = prevTemp + (Math.random() - 0.48) * 0.3 + (newCharging ? 0.05 : 0);
-  newTemp = Math.max(15, Math.min(50, newTemp));
-
-  const power = Math.abs(voltage * current);
-
-  // Health score stays static in the demo (real system would track cycle data)
-  const healthScore = previous ? previous.healthScore : 85 + Math.floor(Math.random() * 12);
+  // LiFePO4 voltage curve
+  const voltage     = nominalVoltage * (0.92 + (soc / 100) * 0.12) + Math.sin(t / 45 + phase) * 0.2;
+  const currentMag  = (isCharging ? 12 : 10) + Math.sin(t / 90 + phase) * 4;
+  const current     = isCharging ? currentMag : -currentMag;
+  const temperature = seed.temperature + Math.sin(t / 600 + phase) * 1.5;
+  const power       = Math.abs(voltage * current);
 
   let status = 'normal';
-  if (newTemp > 42 || newSOC < 20) status = 'warning';
-  if (newTemp > 50 || newSOC < 8)  status = 'critical';
+  if (temperature > 42 || soc < 20) status = 'warning';
+  if (temperature > 50 || soc < 8)  status = 'critical';
 
   return {
     deviceId,
     timestamp:   new Date().toISOString(),
-    soc:         Math.round(newSOC  * 10) / 10,
-    voltage:     Math.round(voltage * 100) / 100,
-    current:     Math.round(current * 100) / 100,
-    temperature: Math.round(newTemp * 10) / 10,
+    soc:         Math.round(soc         * 10) / 10,
+    voltage:     Math.round(voltage     * 100) / 100,
+    current:     Math.round(current     * 100) / 100,
+    temperature: Math.round(temperature * 10) / 10,
     power:       Math.round(power),
-    isCharging:  newCharging,
-    healthScore,
+    isCharging,
+    healthScore: seed.healthScore,
     status
   };
 }
-
-// Seed initial readings with specific starting states so the dashboard
-// looks interesting right away — varied SOC, some charging, one low battery.
-const seedStates = {
-  'dev-001': { soc: 73.2,  temperature: 26.8, isCharging: true,  healthScore: 92 }, // charging nicely
-  'dev-002': { soc: 88.5,  temperature: 24.1, isCharging: false, healthScore: 88 }, // almost full, idle
-  'dev-003': { soc: 47.6,  temperature: 29.4, isCharging: true,  healthScore: 96 }, // solar charging mid-day
-  'dev-004': { soc: 14.3,  temperature: 33.7, isCharging: false, healthScore: 74 }, // low battery warning
-  'dev-005': { soc: 61.8,  temperature: 27.2, isCharging: false, healthScore: 91 }, // normal discharging
-};
-devices.forEach(d => { readings[d.id] = generateReading(d.id, seedStates[d.id] || null); });
-
-// Update all devices every 3 seconds
-setInterval(() => {
-  devices.forEach(d => { readings[d.id] = generateReading(d.id, readings[d.id]); });
-}, 3000);
 
 // ----- Public helpers -----
 
@@ -213,8 +201,14 @@ function addDevice(deviceData) {
   const id     = 'dev-' + Date.now();
   const device = { id, ...deviceData, registeredAt: new Date().toISOString() };
   devices.push(device);
-  readings[id] = generateReading(id, null); // seed an immediate reading
+  // Store a seed so getCurrentReading works for this new device
+  dynamicSeeds[id] = {
+    soc:         55 + Math.random() * 30,
+    temperature: 24 + Math.random() * 4,
+    isCharging:  Math.random() > 0.5,
+    healthScore: 85 + Math.floor(Math.random() * 12)
+  };
   return device;
 }
 
-module.exports = { products, devices, readings, addDevice };
+module.exports = { products, devices, getCurrentReading, addDevice };

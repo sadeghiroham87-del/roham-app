@@ -5,7 +5,7 @@
 
 const express = require('express');
 const path    = require('path');
-const { products, devices, readings, addDevice } = require('./data');
+const { products, devices, getCurrentReading, addDevice } = require('./data');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -26,7 +26,7 @@ app.get('/api/devices', (req, res) => {
   const enriched = devices.map(device => ({
     ...device,
     product:       products.find(p => p.id === device.productId) || null,
-    latestReading: readings[device.id] || null
+    latestReading: getCurrentReading(device.id)
   }));
   res.json(enriched);
 });
@@ -43,12 +43,14 @@ app.post('/api/devices', (req, res) => {
 
 // Latest readings for all devices
 app.get('/api/readings', (req, res) => {
-  res.json(readings);
+  const all = {};
+  devices.forEach(d => { all[d.id] = getCurrentReading(d.id); });
+  res.json(all);
 });
 
 // Latest reading for one device
 app.get('/api/devices/:id/readings', (req, res) => {
-  const reading = readings[req.params.id];
+  const reading = getCurrentReading(req.params.id);
   if (!reading) return res.status(404).json({ error: 'Device not found' });
   res.json(reading);
 });
