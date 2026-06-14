@@ -80,7 +80,7 @@ const products = [
 ];
 
 // ----- Device Registry -----
-// Pre-loaded with two sample devices so the dashboard is not empty on first run.
+// Pre-loaded with five sample devices covering different models and states.
 const devices = [
   {
     id: 'dev-001',
@@ -99,6 +99,33 @@ const devices = [
     location: 'Office',
     installedDate: '2024-03-10',
     registeredAt: new Date('2024-03-10').toISOString()
+  },
+  {
+    id: 'dev-003',
+    name: 'Solar Storage Unit',
+    serialNumber: 'NIK-2024-00078',
+    productId: 'niku-home-10',
+    location: 'Rooftop',
+    installedDate: '2024-06-01',
+    registeredAt: new Date('2024-06-01').toISOString()
+  },
+  {
+    id: 'dev-004',
+    name: 'Warehouse Backup',
+    serialNumber: 'NIK-2024-00099',
+    productId: 'niku-pro-20',
+    location: 'Warehouse A',
+    installedDate: '2024-09-15',
+    registeredAt: new Date('2024-09-15').toISOString()
+  },
+  {
+    id: 'dev-005',
+    name: 'Workshop Power Pack',
+    serialNumber: 'NIK-2025-00012',
+    productId: 'niku-ups-3',
+    location: 'Workshop',
+    installedDate: '2025-01-20',
+    registeredAt: new Date('2025-01-20').toISOString()
   }
 ];
 
@@ -147,8 +174,8 @@ function generateReading(deviceId, previous) {
   const healthScore = previous ? previous.healthScore : 85 + Math.floor(Math.random() * 12);
 
   let status = 'normal';
-  if (newTemp > 42 || newSOC < 10) status = 'warning';
-  if (newTemp > 50)                 status = 'critical';
+  if (newTemp > 42 || newSOC < 20) status = 'warning';
+  if (newTemp > 50 || newSOC < 8)  status = 'critical';
 
   return {
     deviceId,
@@ -164,8 +191,16 @@ function generateReading(deviceId, previous) {
   };
 }
 
-// Seed initial readings for the two sample devices
-devices.forEach(d => { readings[d.id] = generateReading(d.id, null); });
+// Seed initial readings with specific starting states so the dashboard
+// looks interesting right away — varied SOC, some charging, one low battery.
+const seedStates = {
+  'dev-001': { soc: 73.2,  temperature: 26.8, isCharging: true,  healthScore: 92 }, // charging nicely
+  'dev-002': { soc: 88.5,  temperature: 24.1, isCharging: false, healthScore: 88 }, // almost full, idle
+  'dev-003': { soc: 47.6,  temperature: 29.4, isCharging: true,  healthScore: 96 }, // solar charging mid-day
+  'dev-004': { soc: 14.3,  temperature: 33.7, isCharging: false, healthScore: 74 }, // low battery warning
+  'dev-005': { soc: 61.8,  temperature: 27.2, isCharging: false, healthScore: 91 }, // normal discharging
+};
+devices.forEach(d => { readings[d.id] = generateReading(d.id, seedStates[d.id] || null); });
 
 // Update all devices every 3 seconds
 setInterval(() => {

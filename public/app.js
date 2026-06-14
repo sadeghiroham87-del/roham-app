@@ -8,6 +8,16 @@
 // simulator in server/data.js.
 // ============================================================
 
+// Hardcoded product list — mirrors server/data.js.
+// Used as an immediate fallback so the dropdown always has options
+// even if the API request hasn't completed yet or the server is unreachable.
+const PRODUCTS = [
+  { id: 'niku-home-5',  name: 'NIKiSUN Home 5',  capacity: '5 kWh'  },
+  { id: 'niku-home-10', name: 'NIKiSUN Home 10', capacity: '10 kWh' },
+  { id: 'niku-pro-20',  name: 'NIKiSUN Pro 20',  capacity: '20 kWh' },
+  { id: 'niku-ups-3',   name: 'NIKiSUN UPS 3',   capacity: '3 kWh'  },
+];
+
 
 // ---- Tab Navigation ----
 
@@ -265,10 +275,21 @@ async function loadDeviceList() {
 // Register form — show
 document.getElementById('btn-show-form').addEventListener('click', async () => {
   document.getElementById('register-form').classList.remove('hidden');
-  const products = await fetch('/api/products').then(r => r.json());
-  const sel      = document.getElementById('product-select');
-  sel.innerHTML  = '<option value="">Select a model…</option>' +
-    products.map(p => `<option value="${p.id}">${p.name} (${p.capacity})</option>`).join('');
+
+  // Show hardcoded options immediately so the dropdown is never empty,
+  // then silently replace with server data if the API responds.
+  let products = PRODUCTS;
+  const sel    = document.getElementById('product-select');
+  const buildOptions = (list) => {
+    sel.innerHTML = '<option value="">Select a model…</option>' +
+      list.map(p => `<option value="${p.id}">${p.name} (${p.capacity})</option>`).join('');
+  };
+  buildOptions(products); // instant — no waiting
+
+  try {
+    const res = await fetch('/api/products');
+    if (res.ok) buildOptions(await res.json());
+  } catch (e) { /* keep the hardcoded fallback already shown */ }
 });
 
 // Register form — cancel
