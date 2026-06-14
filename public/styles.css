@@ -1,0 +1,186 @@
+/* ============================================================
+   NIKiSUN Smart Battery Hub — Stylesheet
+   Theme: Light, clean, professional
+   ============================================================ */
+
+:root {
+  --blue:    #2563eb;
+  --blue-dk: #1d4ed8;
+  --green:   #16a34a;
+  --amber:   #d97706;
+  --red:     #dc2626;
+  --bg:      #f0f4f8;
+  --card:    #ffffff;
+  --border:  #e2e8f0;
+  --text:    #1a202c;
+  --muted:   #718096;
+  --faint:   #a0aec0;
+  --radius:  12px;
+  --shadow:  0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+}
+
+/* ----- Reset ----- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body  { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+button { cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+
+/* ----- Header ----- */
+.header        { background: #0d1b2a; color: #fff; position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 12px rgba(0,0,0,.3); }
+.header-inner  { max-width: 1200px; margin: 0 auto; padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+.logo          { display: flex; align-items: center; gap: 12px; }
+.logo-icon     { font-size: 26px; }
+.logo-name     { font-size: 17px; font-weight: 800; letter-spacing: 1px; }
+.logo-tagline  { font-size: 10px; color: #94a3b8; letter-spacing: .5px; margin-top: 1px; }
+.demo-badge    { background: #fbbf24; color: #1a1a1a; font-size: 10px; font-weight: 800; padding: 4px 11px; border-radius: 20px; letter-spacing: .5px; }
+
+/* ----- Nav ----- */
+.nav        { background: var(--card); border-bottom: 1px solid var(--border); }
+.nav-inner  { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; }
+.nav-btn    { background: none; border: none; border-bottom: 3px solid transparent; padding: 14px 20px; font-size: 14px; font-weight: 500; color: var(--muted); transition: color .15s, border-color .15s; }
+.nav-btn:hover  { color: var(--blue); }
+.nav-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+
+/* ----- Main ----- */
+.main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+/* ----- Tabs ----- */
+.tab        { display: none; }
+.tab.active { display: block; }
+
+/* ----- Tab Header ----- */
+.tab-header  { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.tab-header h2 { font-size: 22px; font-weight: 700; }
+.tab-sub     { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* ----- Live Indicator ----- */
+.live-row  { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); padding-top: 4px; }
+.live-dot  { width: 9px; height: 9px; background: var(--green); border-radius: 50%; flex-shrink: 0; animation: pulse-dot 2s infinite; }
+@keyframes pulse-dot { 0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,.5); } 50% { box-shadow: 0 0 0 6px rgba(22,163,74,0); } }
+
+/* ----- Stats Row ----- */
+.stats-row   { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.stat-card   { background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); text-align: center; }
+.stat-value  { font-size: 30px; font-weight: 800; line-height: 1; }
+.stat-label  { font-size: 11px; color: var(--muted); margin-top: 6px; text-transform: uppercase; letter-spacing: .5px; }
+
+/* ----- Alert Banner ----- */
+.alert-banner { background: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid var(--amber); border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; font-size: 14px; color: #92400e; }
+
+/* ----- Device Card Grid ----- */
+.device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 18px; }
+
+/* ----- Device Card ----- */
+.device-card          { background: var(--card); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); border-left: 4px solid var(--blue); transition: transform .2s; }
+.device-card:hover    { transform: translateY(-2px); }
+.device-card.has-warn { border-left-color: var(--amber); }
+.device-card.has-crit { border-left-color: var(--red); }
+
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+.card-name   { font-size: 16px; font-weight: 700; }
+.card-meta   { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+/* Status pip */
+.status-pip         { width: 10px; height: 10px; border-radius: 50%; background: var(--green); margin-top: 5px; flex-shrink: 0; }
+.status-pip.warning { background: var(--amber); animation: blink-pip 1.5s infinite; }
+.status-pip.critical { background: var(--red); animation: blink-pip .8s infinite; }
+@keyframes blink-pip { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* SOC block */
+.soc-block    { margin-bottom: 18px; }
+.soc-row      { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.soc-number   { font-size: 34px; font-weight: 800; line-height: 1; }
+.charging-status           { font-size: 13px; font-weight: 600; }
+.charging-status.charging  { color: var(--green); }
+.charging-status.discharging { color: var(--muted); }
+.soc-track    { height: 10px; background: #e2e8f0; border-radius: 5px; overflow: hidden; }
+.soc-fill     { height: 100%; border-radius: 5px; transition: width .6s ease; }
+.soc-high     { background: linear-gradient(90deg, #16a34a, #4ade80); }
+.soc-medium   { background: linear-gradient(90deg, #d97706, #fbbf24); }
+.soc-low      { background: linear-gradient(90deg, #dc2626, #f87171); }
+
+/* Metrics grid */
+.metrics       { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.metric        { background: #f8fafc; border-radius: 8px; padding: 10px 12px; }
+.metric-label  { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+.metric-val    { font-size: 16px; font-weight: 700; }
+
+/* ----- Empty State ----- */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); grid-column: 1 / -1; }
+.empty-icon  { font-size: 48px; margin-bottom: 12px; }
+.empty-state h3 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.empty-state p  { font-size: 14px; }
+
+/* ----- Generic Card ----- */
+.card { background: var(--card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
+
+/* ----- Registration Form ----- */
+.form-card   { margin-bottom: 20px; }
+.form-title  { font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+.form-grid   { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.field       { display: flex; flex-direction: column; }
+.field-label { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .3px; }
+.field-input { padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--text); outline: none; transition: border-color .15s; background: white; }
+.field-input:focus { border-color: var(--blue); }
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ----- Buttons ----- */
+.btn          { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; transition: all .15s; }
+.btn-primary  { background: var(--blue); color: white; }
+.btn-primary:hover { background: var(--blue-dk); }
+.btn-ghost    { background: transparent; color: var(--muted); border: 1.5px solid var(--border); }
+.btn-ghost:hover { background: #f8fafc; }
+
+/* ----- Device List (Devices tab) ----- */
+.device-row       { background: var(--card); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+.device-row-icon  { font-size: 30px; flex-shrink: 0; }
+.device-row-info  { flex: 1; min-width: 0; }
+.device-row-name  { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.device-row-meta  { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.device-row-soc   { text-align: center; min-width: 60px; }
+.device-row-soc-val   { font-size: 22px; font-weight: 800; color: var(--blue); }
+.device-row-soc-label { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: .3px; }
+.device-row-health { font-size: 14px; font-weight: 700; min-width: 64px; text-align: right; }
+.health-excellent { color: var(--green); }
+.health-good      { color: var(--blue); }
+.health-fair      { color: var(--amber); }
+.health-poor      { color: var(--red); }
+
+/* ----- Product Catalog ----- */
+.product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.product-card { background: var(--card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); transition: transform .2s, box-shadow .2s; display: flex; flex-direction: column; }
+.product-card:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,.1); }
+
+.product-icon     { font-size: 36px; margin-bottom: 12px; }
+.product-category { font-size: 11px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+.product-name     { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+.product-desc     { font-size: 13px; color: var(--muted); line-height: 1.55; margin-bottom: 16px; flex: 1; }
+
+.spec-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 14px 0; margin-bottom: 14px; }
+.spec-label { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: .3px; }
+.spec-val   { font-size: 13px; font-weight: 700; }
+
+.feature-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.tag          { background: #eff6ff; color: var(--blue); font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; }
+
+.product-footer   { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; }
+.product-price    { font-size: 24px; font-weight: 800; }
+.product-warranty { font-size: 12px; color: var(--green); margin-top: 3px; }
+
+/* ----- Toast ----- */
+.toast         { position: fixed; bottom: 24px; right: 24px; padding: 14px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,.18); transform: translateY(20px); opacity: 0; transition: all .25s; z-index: 1000; pointer-events: none; }
+.toast-success { background: #f0fdf4; color: #166534; border-left: 4px solid var(--green); }
+.toast-error   { background: #fef2f2; color: #991b1b; border-left: 4px solid var(--red); }
+.toast-visible { transform: translateY(0); opacity: 1; }
+
+/* ----- Utility ----- */
+.hidden { display: none !important; }
+
+/* ----- Responsive ----- */
+@media (max-width: 640px) {
+  .main, .header-inner, .nav-inner { padding-left: 16px; padding-right: 16px; }
+  .device-grid  { grid-template-columns: 1fr; }
+  .product-grid { grid-template-columns: 1fr; }
+  .stats-row    { grid-template-columns: 1fr 1fr; }
+  .metrics      { grid-template-columns: 1fr 1fr; }
+}

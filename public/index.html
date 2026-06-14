@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NIKiSUN Smart Battery Hub</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <div class="logo-text">
+          <div class="logo-name">NIKiSUN</div>
+          <div class="logo-tagline">Smart Battery Hub</div>
+        </div>
+      </div>
+      <span class="demo-badge">SIMULATED DEMO</span>
+    </div>
+  </header>
+
+  <!-- ===== NAVIGATION ===== -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <button class="nav-btn active" data-tab="dashboard">📊 Dashboard</button>
+      <button class="nav-btn" data-tab="devices">🔋 My Devices</button>
+      <button class="nav-btn" data-tab="products">📦 Products</button>
+    </div>
+  </nav>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+
+    <!-- DASHBOARD TAB -->
+    <section id="tab-dashboard" class="tab active">
+      <div class="tab-header">
+        <div>
+          <h2>Live Battery Overview</h2>
+          <p class="tab-sub">Readings refresh automatically every 3 seconds</p>
+        </div>
+        <div class="live-row">
+          <span class="live-dot"></span>
+          <span id="live-ts">Connecting…</span>
+        </div>
+      </div>
+
+      <div class="stats-row" id="stats-row"></div>
+      <div id="alerts-section"></div>
+      <div class="device-grid" id="device-grid"></div>
+    </section>
+
+    <!-- DEVICES TAB -->
+    <section id="tab-devices" class="tab">
+      <div class="tab-header">
+        <div>
+          <h2>My Devices</h2>
+          <p class="tab-sub">Manage your registered batteries</p>
+        </div>
+        <button class="btn btn-primary" id="btn-show-form">+ Register Device</button>
+      </div>
+
+      <!-- Registration form (hidden by default) -->
+      <div class="card form-card hidden" id="register-form">
+        <h3 class="form-title">Register a New Battery</h3>
+        <form id="device-form">
+          <div class="form-grid">
+            <label class="field">
+              <span class="field-label">Device Name *</span>
+              <input class="field-input" name="name" type="text" placeholder="e.g. Living Room Battery" required />
+            </label>
+            <label class="field">
+              <span class="field-label">Serial Number *</span>
+              <input class="field-input" name="serialNumber" type="text" placeholder="e.g. NIK-2024-00123" required />
+            </label>
+            <label class="field">
+              <span class="field-label">Battery Model *</span>
+              <select class="field-input" name="productId" id="product-select" required>
+                <option value="">Select a model…</option>
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Location / Purpose</span>
+              <input class="field-input" name="location" type="text" placeholder="e.g. Home, Warehouse" />
+            </label>
+            <label class="field">
+              <span class="field-label">Installation Date</span>
+              <input class="field-input" name="installedDate" type="date" />
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" id="btn-cancel-form">Cancel</button>
+            <button type="submit" class="btn btn-primary">Register Battery</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="device-list"></div>
+    </section>
+
+    <!-- PRODUCTS TAB -->
+    <section id="tab-products" class="tab">
+      <div class="tab-header">
+        <div>
+          <h2>Product Catalog</h2>
+          <p class="tab-sub">LiFePO4 battery systems for home, commercial, and backup power</p>
+        </div>
+      </div>
+      <div class="product-grid" id="product-grid"></div>
+    </section>
+
+  </main>
+
+  <!-- Toast notification -->
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
