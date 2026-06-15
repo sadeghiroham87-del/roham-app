@@ -18,8 +18,8 @@ const PRODUCTS = [
 // ============================================================
 
 const LS = {
-  get: (k)    => { try { return JSON.parse(localStorage.getItem('fara_' + k)); } catch { return null; } },
-  set: (k, v) => { try { localStorage.setItem('fara_' + k, JSON.stringify(v)); } catch {} },
+  get: (k)    => { try { return JSON.parse(localStorage.getItem('fara_' + k)); } catch (e) { return null; } },
+  set: (k, v) => { try { localStorage.setItem('fara_' + k, JSON.stringify(v)); } catch (e) {} },
 };
 
 function getPowerState(deviceId)     { return LS.get('power_' + deviceId) || 'on'; }
@@ -583,12 +583,38 @@ document.getElementById('btn-admin-logout').addEventListener('click', () => {
 
 // ============================================================
 // Admin — Fleet Map (Leaflet.js + OpenStreetMap)
+// Leaflet is loaded dynamically only when Admin first logs in,
+// so a slow CDN can never block the rest of the app from loading.
 // ============================================================
 
 let adminMap = null;
 
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  return new Promise(function (resolve, reject) {
+    var link  = document.createElement('link');
+    link.rel  = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
+
+    var script    = document.createElement('script');
+    script.src    = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload  = resolve;
+    script.onerror = function () { reject(new Error('Leaflet failed to load')); };
+    document.head.appendChild(script);
+  });
+}
+
 async function initAdminMap() {
   if (adminMap) return;
+
+  try {
+    await loadLeaflet();
+  } catch (e) {
+    document.getElementById('admin-map').innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#718096;font-size:14px;padding:20px;">Map unavailable — check your internet connection</div>';
+    return;
+  }
 
   adminMap = L.map('admin-map').setView([38, -96], 4);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -746,7 +772,7 @@ document.getElementById('support-form').addEventListener('submit', async e => {
     } else {
       showToast('Please fill in all required fields', 'error');
     }
-  } catch {
+  } catch (e) {
     showToast('Could not send — check your connection', 'error');
   } finally {
     btn.disabled    = false;
