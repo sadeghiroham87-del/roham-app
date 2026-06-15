@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FARATECH Smart Battery Hub</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
 
@@ -18,7 +19,10 @@
           <div class="logo-tagline">Smart Battery Hub</div>
         </div>
       </div>
-      <span class="demo-badge">SIMULATED DEMO</span>
+      <div class="header-right">
+        <span class="demo-badge">SIMULATED DEMO</span>
+        <button class="btn-admin-header" id="btn-admin-header">🔑 Admin</button>
+      </div>
     </div>
   </header>
 
@@ -28,6 +32,8 @@
       <button class="nav-btn active" data-tab="dashboard">📊 Dashboard</button>
       <button class="nav-btn" data-tab="devices">🔋 My Devices</button>
       <button class="nav-btn" data-tab="products">📦 Products</button>
+      <button class="nav-btn" data-tab="support">💬 Support</button>
+      <button class="nav-btn hidden" data-tab="admin" id="nav-admin">🗺 Admin</button>
     </div>
   </nav>
 
@@ -62,7 +68,6 @@
         <button class="btn btn-primary" id="btn-show-form">+ Register Device</button>
       </div>
 
-      <!-- Registration form (hidden by default) -->
       <div class="card form-card hidden" id="register-form">
         <h3 class="form-title">Register a New Battery</h3>
         <form id="device-form">
@@ -73,7 +78,7 @@
             </label>
             <label class="field">
               <span class="field-label">Serial Number *</span>
-              <input class="field-input" name="serialNumber" type="text" placeholder="e.g. NIK-2024-00123" required />
+              <input class="field-input" name="serialNumber" type="text" placeholder="e.g. FAR-2024-00123" required />
             </label>
             <label class="field">
               <span class="field-label">Battery Model *</span>
@@ -111,11 +116,181 @@
       <div class="product-grid" id="product-grid"></div>
     </section>
 
+    <!-- SUPPORT TAB -->
+    <section id="tab-support" class="tab">
+      <div class="tab-header">
+        <div>
+          <h2>Customer Support</h2>
+          <p class="tab-sub">We're here to help — Monday through Friday, 8 AM – 6 PM PT</p>
+        </div>
+      </div>
+
+      <div class="support-grid">
+        <!-- Contact Info -->
+        <div class="card">
+          <h3 class="support-section-title">Contact Us</h3>
+          <div class="support-contact-item">📧 <a href="mailto:support@faratech.com">support@faratech.com</a></div>
+          <div class="support-contact-item">📞 <a href="tel:+18005550192">+1 (800) 555-0192</a></div>
+          <div class="support-contact-item">🕐 Mon – Fri, 8 AM – 6 PM Pacific</div>
+
+          <div class="support-divider"></div>
+          <h3 class="support-section-title" style="margin-top:20px;">Emergency Safety</h3>
+          <div class="support-emergency">
+            ⚠ If your battery emits smoke, unusual heat, or swells — disconnect it immediately and call <strong>911</strong>.
+            Do not attempt to repair it yourself.
+          </div>
+        </div>
+
+        <!-- Contact Form -->
+        <div class="card">
+          <h3 class="support-section-title">Send a Message</h3>
+          <form id="support-form">
+            <div class="form-grid">
+              <label class="field">
+                <span class="field-label">Your Name *</span>
+                <input class="field-input" name="name" type="text" placeholder="Jane Smith" required />
+              </label>
+              <label class="field">
+                <span class="field-label">Email Address *</span>
+                <input class="field-input" name="email" type="email" placeholder="jane@example.com" required />
+              </label>
+              <label class="field">
+                <span class="field-label">Serial Number (optional)</span>
+                <input class="field-input" name="serialNumber" type="text" placeholder="e.g. FAR-2024-00001" />
+              </label>
+              <label class="field">
+                <span class="field-label">Subject *</span>
+                <select class="field-input" name="subject" required>
+                  <option value="">Select a topic…</option>
+                  <option value="Technical Support">Technical Support</option>
+                  <option value="Warranty Claim">Warranty Claim</option>
+                  <option value="Installation Help">Installation Help</option>
+                  <option value="Billing">Billing</option>
+                  <option value="General Inquiry">General Inquiry</option>
+                </select>
+              </label>
+            </div>
+            <label class="field" style="margin-bottom:16px;">
+              <span class="field-label">Message *</span>
+              <textarea class="field-input" name="message" rows="4" placeholder="Describe your question or issue…" required style="resize:vertical;"></textarea>
+            </label>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Send Message</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- FAQ -->
+      <div class="card" style="margin-top:20px;">
+        <h3 class="support-section-title">Frequently Asked Questions</h3>
+        <div id="faq-list"></div>
+      </div>
+    </section>
+
+    <!-- ADMIN TAB -->
+    <section id="tab-admin" class="tab">
+      <div class="tab-header">
+        <div>
+          <h2>Admin — Fleet Monitor</h2>
+          <p class="tab-sub">Live map and alert feed across all deployed batteries</p>
+        </div>
+        <button class="btn btn-ghost" id="btn-admin-logout">Logout</button>
+      </div>
+
+      <!-- Fleet Map -->
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px;">
+        <div id="admin-map"></div>
+      </div>
+
+      <!-- Alert Feed -->
+      <div class="card">
+        <div class="admin-feed-header">
+          <h3 class="support-section-title" style="margin-bottom:0;">Live Alert Feed</h3>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="loadAdminAlerts()">Refresh</button>
+        </div>
+        <div id="admin-alert-feed" style="margin-top:16px;"></div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Toast notification -->
   <div class="toast hidden" id="toast"></div>
 
+  <!-- ===== MODALS ===== -->
+
+  <!-- Confirm Modal (shared for power toggle and cooling override) -->
+  <div class="modal-overlay hidden" id="modal-confirm">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title" id="confirm-title">Confirm Action</h3>
+      </div>
+      <p class="modal-msg" id="confirm-msg"></p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+        <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedule Modal -->
+  <div class="modal-overlay hidden" id="modal-schedule">
+    <div class="modal-box modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title" id="schedule-modal-title">Schedules</h3>
+        <button class="modal-close" id="modal-schedule-close">✕</button>
+      </div>
+
+      <!-- Add schedule form -->
+      <div class="schedule-form-row">
+        <select class="field-input" id="sched-action">
+          <option value="on">Turn ON</option>
+          <option value="off">Turn OFF</option>
+        </select>
+        <input class="field-input" type="time" id="sched-time" value="08:00" />
+        <select class="field-input" id="sched-repeat">
+          <option value="daily">Daily</option>
+          <option value="once">Once</option>
+          <option value="weekdays">Weekdays (Mon–Fri)</option>
+          <option value="weekends">Weekends (Sat–Sun)</option>
+        </select>
+        <button class="btn btn-primary" onclick="saveSchedule()">Add</button>
+      </div>
+
+      <!-- Schedule list -->
+      <div id="schedule-list" style="margin-top:20px;"></div>
+
+      <div class="modal-actions" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+        <button class="btn btn-ghost" id="modal-schedule-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Login Modal -->
+  <div class="modal-overlay hidden" id="modal-admin-login">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Admin Login</h3>
+      </div>
+      <p class="modal-hint">Demo credentials: admin@faratech.com / admin123</p>
+      <div class="field" style="margin-bottom:12px;">
+        <span class="field-label">Email</span>
+        <input class="field-input" type="email" id="admin-email" placeholder="admin@faratech.com" />
+      </div>
+      <div class="field" style="margin-bottom:8px;">
+        <span class="field-label">Password</span>
+        <input class="field-input" type="password" id="admin-pass" placeholder="••••••••" />
+      </div>
+      <p class="hidden" id="admin-login-error" style="color:var(--red);font-size:13px;margin:8px 0;"></p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="admin-login-cancel">Cancel</button>
+        <button class="btn btn-primary" id="btn-admin-submit">Login</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

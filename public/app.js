@@ -1,16 +1,8 @@
 'use strict';
 // ============================================================
 // FARATECH Smart Battery Hub — Frontend Application
-//
-// Polls the local Express API every 3 seconds and updates
-// the dashboard with the latest simulated battery readings.
-// No real hardware is required — data comes from the server
-// simulator in server/data.js.
 // ============================================================
 
-// Hardcoded product list — mirrors server/data.js.
-// Used as an immediate fallback so the dropdown always has options
-// even if the API request hasn't completed yet or the server is unreachable.
 const PRODUCTS = [
   { id: 'niku-home-5',  name: 'FARATECH Home 5',  capacity: '5 kWh'  },
   { id: 'niku-home-10', name: 'FARATECH Home 10', capacity: '10 kWh' },
@@ -18,8 +10,38 @@ const PRODUCTS = [
   { id: 'niku-ups-3',   name: 'FARATECH UPS 3',   capacity: '3 kWh'  },
 ];
 
+// ============================================================
+// Client-side State (localStorage)
+// Power and cooling states, schedules, and action log are all
+// stored here. The server is stateless (Vercel serverless),
+// so the client owns this state across page refreshes.
+// ============================================================
 
-// ---- Tab Navigation ----
+const LS = {
+  get: (k)    => { try { return JSON.parse(localStorage.getItem('fara_' + k)); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem('fara_' + k, JSON.stringify(v)); } catch {} },
+};
+
+function getPowerState(deviceId)     { return LS.get('power_' + deviceId) || 'on'; }
+function setPowerState(deviceId, v)  { LS.set('power_' + deviceId, v); }
+
+// Cooling override: 'auto' | 'force-on' | 'force-off'
+function getCoolingOverride(deviceId)    { return LS.get('cool_' + deviceId) || 'auto'; }
+function setCoolingOverride(deviceId, v) { LS.set('cool_' + deviceId, v); }
+
+function getSchedules(deviceId)         { return LS.get('sched_' + deviceId) || []; }
+function setSchedules(deviceId, list)   { LS.set('sched_' + deviceId, list); }
+
+// Cache the latest devices array so in-place updaters can call it from outside the poll loop
+let lastDevices = [];
+
+// Admin session flag
+let adminLoggedIn = false;
+
+
+// ============================================================
+// Tab Navigation
+// ============================================================
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -29,23 +51,31 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.classList.add('active');
     document.getElementById('tab-' + target).classList.add('active');
 
-    // Load data when switching to a tab that needs it
-    if (target === 'devices') loadDeviceList();
+    if (target === 'devices')  loadDeviceList();
     if (target === 'products') loadProducts();
+    if (target === 'support')  renderFAQ();
+    if (target === 'admin') {
+      // Leaflet needs to recalculate its container size after the tab becomes visible
+      setTimeout(() => {
+        if (adminMap) adminMap.invalidateSize();
+        loadAdminAlerts();
+      }, 80);
+    }
   });
 });
 
 
-// ---- Dashboard ----
+// ============================================================
+// Dashboard
+// ============================================================
 
-// Track whether we've done the first full render of device cards.
-// After that we update values in-place to avoid DOM flickering.
 let cardsRendered = false;
 
 async function refreshDashboard() {
   try {
-    const [devRes] = await Promise.all([fetch('/api/devices')]);
-    const devices = await devRes.json();
+    const res     = await fetch('/api/devices');
+    const devices = await res.json();
+    lastDevices = devices;
 
     updateTimestamp();
     renderStats(devices);
@@ -57,6 +87,8 @@ async function refreshDashboard() {
     } else {
       updateDeviceCards(devices);
     }
+
+    if (adminLoggedIn) loadAdminAlerts();
   } catch (err) {
     console.error('Dashboard refresh failed:', err);
   }
@@ -67,7 +99,6 @@ function updateTimestamp() {
   if (el) el.textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
-// Re-renders the four summary stats at the top of the dashboard
 function renderStats(devices) {
   const total     = devices.length;
   const avgSOC    = total > 0 ? Math.round(devices.reduce((s, d) => s + (d.latestReading?.soc || 0), 0) / total) : 0;
@@ -93,7 +124,6 @@ function renderStats(devices) {
     </div>`;
 }
 
-// Shows yellow warning banners above device cards when a battery needs attention
 function renderAlerts(devices) {
   const warnings = devices.filter(d => d.latestReading?.status !== 'normal');
   const section  = document.getElementById('alerts-section');
@@ -108,9 +138,11 @@ function renderAlerts(devices) {
   }).join('');
 }
 
-// ------ Device Cards ------
 
-// Initial render: builds the full card HTML with IDs for each metric element
+// ============================================================
+// Device Cards
+// ============================================================
+
 function renderDeviceCards(devices) {
   const grid = document.getElementById('device-grid');
   if (devices.length === 0) {
@@ -125,13 +157,11 @@ function renderDeviceCards(devices) {
   grid.innerHTML = devices.map(d => deviceCardHTML(d)).join('');
 }
 
-// Subsequent updates: change only the text/style values without rebuilding the DOM
 function updateDeviceCards(devices) {
   devices.forEach(d => {
     const r = d.latestReading;
     if (!r) return;
 
-    // If a card doesn't exist yet (device was just registered), add it
     if (!document.getElementById('card-' + d.id)) {
       document.getElementById('device-grid').insertAdjacentHTML('beforeend', deviceCardHTML(d));
       return;
@@ -143,7 +173,7 @@ function updateDeviceCards(devices) {
     if (fill) { fill.style.width = r.soc + '%'; fill.className = 'soc-fill ' + socClass(r.soc); }
     if (num)  num.textContent = r.soc + '%';
 
-    // Charging status label
+    // Charging label
     const chEl = document.getElementById('charging-' + d.id);
     if (chEl) {
       chEl.textContent = r.isCharging ? '⚡ Charging' : '↓ Discharging';
@@ -161,10 +191,35 @@ function updateDeviceCards(devices) {
       tempEl.textContent = r.temperature + '°C';
       tempEl.style.color = r.temperature > 42 ? 'var(--red)' : r.temperature > 36 ? 'var(--amber)' : '';
     }
+
+    // Power state
+    const powerState  = getPowerState(d.id);
+    const offOverlay  = document.getElementById('offline-' + d.id);
+    if (offOverlay) offOverlay.classList.toggle('hidden', powerState !== 'off');
+
+    const powerBtn = document.getElementById('btn-power-' + d.id);
+    if (powerBtn) {
+      powerBtn.textContent = powerState === 'on' ? '⏻ ON' : '⏻ OFF';
+      powerBtn.className   = 'ctrl-btn ' + (powerState === 'on' ? 'ctrl-power-on' : 'ctrl-power-off');
+    }
+
+    // Cooling state
+    const override   = getCoolingOverride(d.id);
+    const coolActive = override === 'force-on' || (override === 'auto' && r.coolingActive);
+    const coolBadge  = document.getElementById('cool-badge-' + d.id);
+    const coolBtn    = document.getElementById('btn-cool-' + d.id);
+    if (coolBadge) {
+      coolBadge.textContent = coolActive ? '❄ Cooling ON' : '❄ Cooling OFF';
+      coolBadge.className   = 'cool-badge ' + (coolActive ? 'cool-on' : 'cool-off');
+    }
+    if (coolBtn) {
+      coolBtn.textContent = override === 'auto'     ? 'Auto'
+                          : override === 'force-on' ? 'Force ON'
+                          : 'Force OFF';
+    }
   });
 }
 
-// Builds the full HTML for one device card (used on first render and for new devices)
 function deviceCardHTML(d) {
   const r = d.latestReading;
   if (!r) return '';
@@ -174,14 +229,22 @@ function deviceCardHTML(d) {
                : r.healthScore >= 50 ? 'var(--amber)'
                : 'var(--red)';
 
-  const cardClass = r.status === 'critical' ? 'has-crit'
-                  : r.status === 'warning'  ? 'has-warn'
-                  : '';
-
-  const tempColor = r.temperature > 42 ? 'var(--red)' : r.temperature > 36 ? 'var(--amber)' : '';
+  const cardClass  = r.status === 'critical' ? 'has-crit' : r.status === 'warning' ? 'has-warn' : '';
+  const tempColor  = r.temperature > 42 ? 'var(--red)' : r.temperature > 36 ? 'var(--amber)' : '';
+  const powerState = getPowerState(d.id);
+  const override   = getCoolingOverride(d.id);
+  const coolActive = override === 'force-on' || (override === 'auto' && r.coolingActive);
+  const safeName   = d.name.replace(/'/g, "\\'");
 
   return `
     <div class="device-card ${cardClass}" id="card-${d.id}">
+
+      <!-- Offline overlay — shown when output is toggled OFF -->
+      <div class="card-offline-overlay ${powerState === 'off' ? '' : 'hidden'}" id="offline-${d.id}">
+        <div class="offline-icon">⏻</div>
+        <div class="offline-label">Output Disabled</div>
+      </div>
+
       <div class="card-header">
         <div>
           <div class="card-name">${d.name}</div>
@@ -228,6 +291,27 @@ function deviceCardHTML(d) {
           <div class="metric-val" style="font-size:12px;font-weight:500">${d.serialNumber}</div>
         </div>
       </div>
+
+      <!-- Card controls: power, cooling, schedule -->
+      <div class="card-controls">
+        <button class="ctrl-btn ${powerState === 'on' ? 'ctrl-power-on' : 'ctrl-power-off'}"
+                id="btn-power-${d.id}"
+                onclick="handlePowerToggle('${d.id}')">
+          ⏻ ${powerState === 'on' ? 'ON' : 'OFF'}
+        </button>
+
+        <span class="cool-badge ${coolActive ? 'cool-on' : 'cool-off'}" id="cool-badge-${d.id}">
+          ❄ ${coolActive ? 'Cooling ON' : 'Cooling OFF'}
+        </span>
+
+        <button class="ctrl-btn" id="btn-cool-${d.id}" onclick="handleCoolingToggle('${d.id}')">
+          ${override === 'auto' ? 'Auto' : override === 'force-on' ? 'Force ON' : 'Force OFF'}
+        </button>
+
+        <button class="ctrl-btn ctrl-sched" onclick="openScheduleModal('${d.id}', '${safeName}')">
+          ⏰ Schedule
+        </button>
+      </div>
     </div>`;
 }
 
@@ -241,7 +325,439 @@ function set(id, value) {
 }
 
 
-// ---- Devices Tab ----
+// ============================================================
+// Confirm Modal (generic — reused for power and cooling)
+// ============================================================
+
+let _confirmCallback = null;
+
+function openConfirm(title, message, onConfirm) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent   = message;
+  _confirmCallback = onConfirm;
+  document.getElementById('modal-confirm').classList.remove('hidden');
+}
+
+document.getElementById('confirm-ok').addEventListener('click', () => {
+  document.getElementById('modal-confirm').classList.add('hidden');
+  if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
+});
+
+document.getElementById('confirm-cancel').addEventListener('click', () => {
+  document.getElementById('modal-confirm').classList.add('hidden');
+  _confirmCallback = null;
+});
+
+
+// ============================================================
+// Power Toggle
+// ============================================================
+
+function handlePowerToggle(deviceId) {
+  const current = getPowerState(deviceId);
+  const next    = current === 'on' ? 'off' : 'on';
+  const d       = lastDevices.find(x => x.id === deviceId);
+  const name    = d?.name || deviceId;
+
+  if (next === 'off') {
+    // Turning off requires confirmation
+    openConfirm(
+      `Disable Output — ${name}`,
+      `This will cut power output from this battery. Are you sure you want to turn it OFF?`,
+      async () => {
+        const res = await fetch(`/api/devices/${deviceId}/power`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ action: 'off' })
+        });
+        if (res.ok) {
+          setPowerState(deviceId, 'off');
+          showToast(`${name} output disabled`, 'error');
+          updateDeviceCards(lastDevices);
+        }
+      }
+    );
+  } else {
+    // Turning on is immediate — no confirmation needed
+    fetch(`/api/devices/${deviceId}/power`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ action: 'on' })
+    }).then(res => {
+      if (res.ok) {
+        setPowerState(deviceId, 'on');
+        showToast(`${name} output enabled`, 'success');
+        updateDeviceCards(lastDevices);
+      }
+    });
+  }
+}
+
+
+// ============================================================
+// Cooling Toggle
+// Cycles: auto → force-on → force-off → auto
+// ============================================================
+
+function handleCoolingToggle(deviceId) {
+  const current = getCoolingOverride(deviceId);
+  const next    = current === 'auto'     ? 'force-on'
+                : current === 'force-on' ? 'force-off'
+                : 'auto';
+
+  const d    = lastDevices.find(x => x.id === deviceId);
+  const name = d?.name || deviceId;
+
+  if (next === 'auto') {
+    setCoolingOverride(deviceId, 'auto');
+    showToast(`${name} cooling set to Auto`, 'info');
+    updateDeviceCards(lastDevices);
+    return;
+  }
+
+  const label = next === 'force-on' ? 'ON' : 'OFF';
+  openConfirm(
+    `Manual Cooling ${label} — ${name}`,
+    `Override the auto-cooling system to be manually ${next === 'force-on' ? 'activated' : 'deactivated'} for this battery?`,
+    async () => {
+      const action = next === 'force-on' ? 'on' : 'off';
+      const res = await fetch(`/api/devices/${deviceId}/cooling`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ action })
+      });
+      if (res.ok) {
+        setCoolingOverride(deviceId, next);
+        showToast(`${name} cooling: ${next === 'force-on' ? 'Forced ON' : 'Forced OFF'}`, 'info');
+        updateDeviceCards(lastDevices);
+      }
+    }
+  );
+}
+
+
+// ============================================================
+// Schedule Modal
+// ============================================================
+
+let _scheduleDeviceId = null;
+
+function openScheduleModal(deviceId, deviceName) {
+  _scheduleDeviceId = deviceId;
+  document.getElementById('schedule-modal-title').textContent = `Schedules — ${deviceName}`;
+  renderScheduleList();
+  document.getElementById('modal-schedule').classList.remove('hidden');
+}
+
+function renderScheduleList() {
+  const list = getSchedules(_scheduleDeviceId);
+  const el   = document.getElementById('schedule-list');
+
+  if (list.length === 0) {
+    el.innerHTML = '<div class="schedule-empty">No schedules yet. Add one above.</div>';
+    return;
+  }
+
+  const repeatLabel = { once: 'Once', daily: 'Daily', weekdays: 'Mon–Fri', weekends: 'Sat–Sun' };
+
+  el.innerHTML = list.map(s => `
+    <div class="schedule-item ${s.paused ? 'schedule-paused' : ''}">
+      <div class="schedule-info">
+        <span class="schedule-pill ${s.action === 'off' ? 'pill-off' : ''}">
+          ${s.action === 'on' ? '⚡ ON' : '⏹ OFF'}
+        </span>
+        <span style="font-weight:600;">${s.time}</span>
+        <span style="color:var(--muted);font-size:12px;">${repeatLabel[s.repeat] || s.repeat}</span>
+        ${s.paused ? '<span class="schedule-paused-tag">(paused)</span>' : ''}
+      </div>
+      <div class="schedule-btns">
+        <button class="schedule-btn" onclick="toggleSchedulePause('${s.id}')">
+          ${s.paused ? '▶ Resume' : '⏸ Pause'}
+        </button>
+        <button class="schedule-btn btn-del" onclick="deleteScheduleItem('${s.id}')">🗑 Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+async function saveSchedule() {
+  const action = document.getElementById('sched-action').value;
+  const time   = document.getElementById('sched-time').value;
+  const repeat = document.getElementById('sched-repeat').value;
+
+  if (!time) { showToast('Please select a time', 'error'); return; }
+
+  const res = await fetch(`/api/devices/${_scheduleDeviceId}/schedules`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ action, time, repeat })
+  });
+
+  if (!res.ok) { showToast('Invalid schedule', 'error'); return; }
+
+  const { schedule } = await res.json();
+  const list = getSchedules(_scheduleDeviceId);
+  list.push(schedule);
+  setSchedules(_scheduleDeviceId, list);
+  renderScheduleList();
+  showToast('Schedule added', 'success');
+}
+
+function toggleSchedulePause(schedId) {
+  const list = getSchedules(_scheduleDeviceId).map(s =>
+    s.id === schedId ? { ...s, paused: !s.paused } : s
+  );
+  setSchedules(_scheduleDeviceId, list);
+  renderScheduleList();
+}
+
+function deleteScheduleItem(schedId) {
+  const list = getSchedules(_scheduleDeviceId).filter(s => s.id !== schedId);
+  setSchedules(_scheduleDeviceId, list);
+  renderScheduleList();
+}
+
+document.getElementById('modal-schedule-close').addEventListener('click', () => {
+  document.getElementById('modal-schedule').classList.add('hidden');
+});
+document.getElementById('modal-schedule-close-btn').addEventListener('click', () => {
+  document.getElementById('modal-schedule').classList.add('hidden');
+});
+
+
+// ============================================================
+// Admin — Login
+// ============================================================
+
+document.getElementById('btn-admin-header').addEventListener('click', () => {
+  if (adminLoggedIn) {
+    // Already logged in — jump straight to admin tab
+    document.querySelector('[data-tab="admin"]').click();
+  } else {
+    document.getElementById('admin-login-error').classList.add('hidden');
+    document.getElementById('admin-email').value = '';
+    document.getElementById('admin-pass').value  = '';
+    document.getElementById('modal-admin-login').classList.remove('hidden');
+    setTimeout(() => document.getElementById('admin-email').focus(), 100);
+  }
+});
+
+document.getElementById('admin-login-cancel').addEventListener('click', () => {
+  document.getElementById('modal-admin-login').classList.add('hidden');
+});
+
+// Allow pressing Enter in password field to submit
+document.getElementById('admin-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btn-admin-submit').click();
+});
+
+document.getElementById('btn-admin-submit').addEventListener('click', async () => {
+  const email = document.getElementById('admin-email').value.trim();
+  const pass  = document.getElementById('admin-pass').value;
+  const errEl = document.getElementById('admin-login-error');
+
+  const res  = await fetch(`/api/admin/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(pass)}`);
+  const data = await res.json();
+
+  if (data.ok) {
+    adminLoggedIn = true;
+    document.getElementById('modal-admin-login').classList.add('hidden');
+    document.getElementById('nav-admin').classList.remove('hidden');
+    document.getElementById('btn-admin-header').textContent = '🔑 Admin ✓';
+    document.querySelector('[data-tab="admin"]').click();
+    initAdminMap();
+  } else {
+    errEl.textContent = 'Invalid credentials. Try admin@faratech.com / admin123';
+    errEl.classList.remove('hidden');
+  }
+});
+
+document.getElementById('btn-admin-logout').addEventListener('click', () => {
+  adminLoggedIn = false;
+  document.getElementById('nav-admin').classList.add('hidden');
+  document.getElementById('btn-admin-header').textContent = '🔑 Admin';
+  if (adminMap) { adminMap.remove(); adminMap = null; }
+  document.querySelector('[data-tab="dashboard"]').click();
+  showToast('Admin session ended', 'info');
+});
+
+
+// ============================================================
+// Admin — Fleet Map (Leaflet.js + OpenStreetMap)
+// ============================================================
+
+let adminMap = null;
+
+async function initAdminMap() {
+  if (adminMap) return;
+
+  adminMap = L.map('admin-map').setView([38, -96], 4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+    maxZoom: 18
+  }).addTo(adminMap);
+
+  const res     = await fetch('/api/devices');
+  const devices = await res.json();
+
+  devices.forEach(d => {
+    const gps = d.gps;
+    if (!gps) return;
+
+    const r     = d.latestReading;
+    const color = r?.status === 'critical' ? '#dc2626'
+                : r?.status === 'warning'  ? '#d97706'
+                : '#16a34a';
+
+    const marker = L.circleMarker([gps.lat, gps.lng], {
+      radius:      11,
+      fillColor:   color,
+      color:       '#ffffff',
+      weight:      2.5,
+      opacity:     1,
+      fillOpacity: 0.9
+    }).addTo(adminMap);
+
+    marker.bindPopup(`
+      <div style="min-width:190px;font-family:-apple-system,sans-serif;font-size:13px;">
+        <div style="font-size:15px;font-weight:700;margin-bottom:4px;">${d.name}</div>
+        <div style="color:#666;margin-bottom:8px;">${gps.customer} · ${gps.city}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+          <span style="color:#888">Charge</span> <strong>${r?.soc ?? '--'}%</strong>
+          <span style="color:#888">Health</span> <strong>${r?.healthScore ?? '--'}/100</strong>
+          <span style="color:#888">Temp</span>   <strong>${r?.temperature ?? '--'}°C</strong>
+          <span style="color:#888">Status</span> <strong style="color:${color}">${r?.status?.toUpperCase() ?? '--'}</strong>
+        </div>
+        ${r?.coolingActive ? '<div style="margin-top:8px;color:#2563eb;font-size:12px;font-weight:600;">❄ Auto-cooling active</div>' : ''}
+      </div>`);
+  });
+}
+
+
+// ============================================================
+// Admin — Alert Feed
+// ============================================================
+
+async function loadAdminAlerts() {
+  const el = document.getElementById('admin-alert-feed');
+  if (!el) return;
+
+  const res  = await fetch('/api/admin/alerts');
+  const data = await res.json();
+
+  if (data.alerts.length === 0) {
+    el.innerHTML = '<div class="admin-feed-empty">✅ All batteries operating normally</div>';
+    return;
+  }
+
+  const icons = { 'low-charge': '🪫', 'high-temp': '🌡', 'cooling-on': '❄', 'health': '⚠', default: 'ℹ' };
+  const sevClass = { critical: 'admin-alert-crit', warning: 'admin-alert-warn', info: 'admin-alert-info' };
+  const sevPill  = { critical: 'sev-critical',     warning: 'sev-warning',      info: 'sev-info' };
+
+  el.innerHTML = data.alerts.map(a => `
+    <div class="admin-alert-row ${sevClass[a.severity] || 'admin-alert-info'}">
+      <div style="font-size:18px;flex-shrink:0;">${icons[a.type] || icons.default}</div>
+      <div class="admin-alert-body">
+        <div class="admin-alert-name">${a.deviceName} <span style="font-weight:400;color:var(--muted);font-size:12px;">${a.customer ? '— ' + a.customer : ''}</span></div>
+        <div class="admin-alert-msg">${a.msg}</div>
+      </div>
+      <span class="admin-alert-sev ${sevPill[a.severity] || 'sev-info'}">${a.severity.toUpperCase()}</span>
+    </div>`).join('');
+}
+
+
+// ============================================================
+// Support — FAQ
+// ============================================================
+
+const FAQ_ITEMS = [
+  {
+    q: 'How do I check my battery\'s charge level?',
+    a: 'Navigate to the Dashboard tab. Each device card shows the current charge percentage and a color-coded bar — green is good, amber is low, red needs immediate attention.'
+  },
+  {
+    q: 'What does the Health Score mean?',
+    a: 'Health Score (0–100) estimates remaining battery capacity based on cycle count and cell balance. A score above 90 is excellent. Scores below 75 suggest scheduling a service check with our team.'
+  },
+  {
+    q: 'How do I schedule automatic ON/OFF times for a battery?',
+    a: 'On the Dashboard, each battery card has a "⏰ Schedule" button. Click it to set daily, weekday, or weekend schedules for turning output on or off at specific times.'
+  },
+  {
+    q: 'Why is the cooling system activating automatically?',
+    a: 'Auto-cooling activates when a battery\'s temperature exceeds 43°C to prevent overheating. This is normal. If it activates frequently, ensure the unit has adequate ventilation and contact support if the issue persists.'
+  },
+  {
+    q: 'Can I add more than one battery to my account?',
+    a: 'Yes. Go to My Devices and click "Register Device". You can register as many units as you own by entering the device name, serial number, and model.'
+  },
+  {
+    q: 'What is the warranty coverage for FARATECH products?',
+    a: 'Home series: 10 years. Pro 20: 12 years. UPS series: 8 years. Warranty covers manufacturing defects and abnormal capacity loss. Contact support@faratech.com to start a warranty claim.'
+  },
+];
+
+function renderFAQ() {
+  const el = document.getElementById('faq-list');
+  if (!el || el.dataset.rendered) return;
+  el.dataset.rendered = '1';
+
+  el.innerHTML = FAQ_ITEMS.map((item, i) => `
+    <div class="faq-item">
+      <button class="faq-question" onclick="toggleFAQ(${i})">
+        <span>${item.q}</span>
+        <span class="faq-chevron" id="faq-chev-${i}">▼</span>
+      </button>
+      <div class="faq-answer hidden" id="faq-ans-${i}">${item.a}</div>
+    </div>`).join('');
+}
+
+function toggleFAQ(i) {
+  const ans  = document.getElementById('faq-ans-'  + i);
+  const chev = document.getElementById('faq-chev-' + i);
+  const open = !ans.classList.contains('hidden');
+  ans.classList.toggle('hidden', open);
+  chev.textContent = open ? '▼' : '▲';
+}
+
+
+// ============================================================
+// Support — Contact Form
+// ============================================================
+
+document.getElementById('support-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  const btn  = e.target.querySelector('[type="submit"]');
+
+  btn.disabled    = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const res = await fetch('/api/support/contact', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(data)
+    });
+
+    if (res.ok) {
+      const { ticketId } = await res.json();
+      showToast(`Message sent — Ticket ${ticketId}`, 'success');
+      e.target.reset();
+    } else {
+      showToast('Please fill in all required fields', 'error');
+    }
+  } catch {
+    showToast('Could not send — check your connection', 'error');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Send Message';
+  }
+});
+
+
+// ============================================================
+// Devices Tab
+// ============================================================
 
 async function loadDeviceList() {
   const res     = await fetch('/api/devices');
@@ -254,7 +770,7 @@ async function loadDeviceList() {
   }
 
   el.innerHTML = devices.map(d => {
-    const r = d.latestReading;
+    const r      = d.latestReading;
     const hClass = !r ? '' : r.healthScore >= 90 ? 'health-excellent' : r.healthScore >= 75 ? 'health-good' : r.healthScore >= 50 ? 'health-fair' : 'health-poor';
     return `
       <div class="device-row">
@@ -272,33 +788,28 @@ async function loadDeviceList() {
   }).join('');
 }
 
-// Register form — show
 document.getElementById('btn-show-form').addEventListener('click', async () => {
   document.getElementById('register-form').classList.remove('hidden');
 
-  // Show hardcoded options immediately so the dropdown is never empty,
-  // then silently replace with server data if the API responds.
   let products = PRODUCTS;
   const sel    = document.getElementById('product-select');
   const buildOptions = (list) => {
     sel.innerHTML = '<option value="">Select a model…</option>' +
       list.map(p => `<option value="${p.id}">${p.name} (${p.capacity})</option>`).join('');
   };
-  buildOptions(products); // instant — no waiting
+  buildOptions(products);
 
   try {
     const res = await fetch('/api/products');
     if (res.ok) buildOptions(await res.json());
-  } catch (e) { /* keep the hardcoded fallback already shown */ }
+  } catch (e) {}
 });
 
-// Register form — cancel
 document.getElementById('btn-cancel-form').addEventListener('click', () => {
   document.getElementById('register-form').classList.add('hidden');
   document.getElementById('device-form').reset();
 });
 
-// Register form — submit
 document.getElementById('device-form').addEventListener('submit', async e => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.target));
@@ -313,7 +824,7 @@ document.getElementById('device-form').addEventListener('submit', async e => {
     e.target.reset();
     showToast('Battery registered ✓', 'success');
     loadDeviceList();
-    cardsRendered = false; // force full re-render of dashboard cards
+    cardsRendered = false;
   } else {
     const err = await res.json();
     showToast('Error: ' + err.error, 'error');
@@ -321,7 +832,9 @@ document.getElementById('device-form').addEventListener('submit', async e => {
 });
 
 
-// ---- Products Tab ----
+// ============================================================
+// Products Tab
+// ============================================================
 
 async function loadProducts() {
   const products = await fetch('/api/products').then(r => r.json());
@@ -350,7 +863,9 @@ async function loadProducts() {
 }
 
 
-// ---- Toast ----
+// ============================================================
+// Toast
+// ============================================================
 
 function showToast(msg, type = 'info') {
   const toast     = document.getElementById('toast');
@@ -360,11 +875,13 @@ function showToast(msg, type = 'info') {
   setTimeout(() => {
     toast.classList.remove('toast-visible');
     setTimeout(() => { toast.className = 'toast hidden'; }, 300);
-  }, 3000);
+  }, 3500);
 }
 
 
-// ---- Init ----
+// ============================================================
+// Init
+// ============================================================
 
 refreshDashboard();
 setInterval(refreshDashboard, 3000);

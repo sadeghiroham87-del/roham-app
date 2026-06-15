@@ -3,8 +3,6 @@
 //
 // NOTE: All data here is SIMULATED.
 // No real hardware or BMS is connected in this prototype.
-// The simulator generates realistic-looking readings that
-// drift over time so the dashboard appears "live".
 // ============================================================
 
 // ----- Product Catalog -----
@@ -79,8 +77,17 @@ const products = [
   }
 ];
 
+// ----- Device GPS & Customer Info -----
+// Each pre-loaded device is assigned to a US city for the admin map demo.
+const deviceGPS = {
+  'dev-001': { lat: 37.7749, lng: -122.4194, city: 'San Francisco, CA', customer: 'John Smith'    },
+  'dev-002': { lat: 40.7128, lng: -74.0060,  city: 'New York, NY',      customer: 'Sarah Johnson' },
+  'dev-003': { lat: 34.0522, lng: -118.2437, city: 'Los Angeles, CA',   customer: 'Michael Chen'  },
+  'dev-004': { lat: 41.8781, lng: -87.6298,  city: 'Chicago, IL',       customer: 'Emily Davis'   },
+  'dev-005': { lat: 29.7604, lng: -95.3698,  city: 'Houston, TX',       customer: 'Robert Wilson' },
+};
+
 // ----- Device Registry -----
-// Pre-loaded with five sample devices covering different models and states.
 const devices = [
   {
     id: 'dev-001',
@@ -130,25 +137,18 @@ const devices = [
 ];
 
 // ----- Seed States -----
-// Fixed starting points for each pre-loaded device.
-// getCurrentReading() oscillates around these values using the current time,
-// so readings change on every API call without needing setInterval or stored state.
-// This works correctly on both local Node.js and Vercel serverless.
+// dev-004 runs warm (45.2°C) to demonstrate the auto-cooling feature.
 const seedStates = {
   'dev-001': { soc: 73.2, temperature: 26.8, isCharging: true,  healthScore: 92 },
   'dev-002': { soc: 88.5, temperature: 24.1, isCharging: false, healthScore: 88 },
   'dev-003': { soc: 47.6, temperature: 29.4, isCharging: true,  healthScore: 96 },
-  'dev-004': { soc: 14.3, temperature: 33.7, isCharging: false, healthScore: 74 },
+  'dev-004': { soc: 14.3, temperature: 45.2, isCharging: false, healthScore: 74 },
   'dev-005': { soc: 61.8, temperature: 27.2, isCharging: false, healthScore: 91 },
 };
 
-// Seeds for devices registered at runtime (survive only while the process is alive)
 const dynamicSeeds = {};
 
 // ----- getCurrentReading -----
-// Computes a realistic battery reading from the current timestamp.
-// Each device has a unique phase offset (derived from its seed SOC) so they
-// don't all move in sync — the dashboard shows varied states at all times.
 function getCurrentReading(deviceId) {
   const device = devices.find(d => d.id === deviceId);
   if (!device) return null;
@@ -158,24 +158,24 @@ function getCurrentReading(deviceId) {
   const seed           = seedStates[deviceId] || dynamicSeeds[deviceId]
                          || { soc: 65, temperature: 26, isCharging: true, healthScore: 88 };
 
-  const t     = Date.now() / 1000;                       // seconds since epoch
-  const phase = (seed.soc / 100) * Math.PI * 2;          // unique phase per device
+  const t     = Date.now() / 1000;
+  const phase = (seed.soc / 100) * Math.PI * 2;
 
-  // SOC oscillates ±8% around the seed over a 20-minute cycle, plus a small ±0.4% ripple
   const slowWave   = Math.sin((t / 1200) * Math.PI * 2 + phase) * 8;
   const fastRipple = Math.sin((t / 60)   * Math.PI * 2 + phase) * 0.4;
   const soc        = Math.max(5, Math.min(100, seed.soc + slowWave + fastRipple));
 
-  // Charging state follows the direction the SOC is moving
   const derivative = Math.cos((t / 1200) * Math.PI * 2 + phase);
   const isCharging = seed.isCharging ? derivative > -0.3 : derivative > 0.3;
 
-  // LiFePO4 voltage curve
   const voltage     = nominalVoltage * (0.92 + (soc / 100) * 0.12) + Math.sin(t / 45 + phase) * 0.2;
   const currentMag  = (isCharging ? 12 : 10) + Math.sin(t / 90 + phase) * 4;
   const current     = isCharging ? currentMag : -currentMag;
   const temperature = seed.temperature + Math.sin(t / 600 + phase) * 1.5;
   const power       = Math.abs(voltage * current);
+
+  // Auto-cooling activates when temperature exceeds 43°C
+  const coolingActive = temperature > 43;
 
   let status = 'normal';
   if (temperature > 42 || soc < 20) status = 'warning';
@@ -190,18 +190,16 @@ function getCurrentReading(deviceId) {
     temperature: Math.round(temperature * 10) / 10,
     power:       Math.round(power),
     isCharging,
+    coolingActive,
     healthScore: seed.healthScore,
     status
   };
 }
 
-// ----- Public helpers -----
-
 function addDevice(deviceData) {
   const id     = 'dev-' + Date.now();
   const device = { id, ...deviceData, registeredAt: new Date().toISOString() };
   devices.push(device);
-  // Store a seed so getCurrentReading works for this new device
   dynamicSeeds[id] = {
     soc:         55 + Math.random() * 30,
     temperature: 24 + Math.random() * 4,
@@ -211,4 +209,4 @@ function addDevice(deviceData) {
   return device;
 }
 
-module.exports = { products, devices, getCurrentReading, addDevice };
+module.exports = { products, devices, deviceGPS, getCurrentReading, addDevice };
