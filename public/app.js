@@ -243,6 +243,7 @@ function deviceCardHTML(d) {
       <div class="card-offline-overlay ${powerState === 'off' ? '' : 'hidden'}" id="offline-${d.id}">
         <div class="offline-icon">⏻</div>
         <div class="offline-label">Output Disabled</div>
+        <button class="btn btn-primary" style="margin-top:10px;font-size:13px;" onclick="handlePowerToggle('${d.id}')">Turn On</button>
       </div>
 
       <div class="card-header">
