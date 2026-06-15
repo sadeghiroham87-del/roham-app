@@ -338,12 +338,12 @@ function openConfirm(title, message, onConfirm) {
   document.getElementById('modal-confirm').classList.remove('hidden');
 }
 
-document.getElementById('confirm-ok').addEventListener('click', () => {
+document.getElementById('confirm-ok')?.addEventListener('click', () => {
   document.getElementById('modal-confirm').classList.add('hidden');
   if (_confirmCallback) { _confirmCallback(); _confirmCallback = null; }
 });
 
-document.getElementById('confirm-cancel').addEventListener('click', () => {
+document.getElementById('confirm-cancel')?.addEventListener('click', () => {
   document.getElementById('modal-confirm').classList.add('hidden');
   _confirmCallback = null;
 });
@@ -516,10 +516,10 @@ function deleteScheduleItem(schedId) {
   renderScheduleList();
 }
 
-document.getElementById('modal-schedule-close').addEventListener('click', () => {
+document.getElementById('modal-schedule-close')?.addEventListener('click', () => {
   document.getElementById('modal-schedule').classList.add('hidden');
 });
-document.getElementById('modal-schedule-close-btn').addEventListener('click', () => {
+document.getElementById('modal-schedule-close-btn')?.addEventListener('click', () => {
   document.getElementById('modal-schedule').classList.add('hidden');
 });
 
@@ -528,7 +528,7 @@ document.getElementById('modal-schedule-close-btn').addEventListener('click', ()
 // Admin — Login
 // ============================================================
 
-document.getElementById('btn-admin-header').addEventListener('click', () => {
+document.getElementById('btn-admin-header')?.addEventListener('click', () => {
   if (adminLoggedIn) {
     // Already logged in — jump straight to admin tab
     document.querySelector('[data-tab="admin"]').click();
@@ -541,16 +541,16 @@ document.getElementById('btn-admin-header').addEventListener('click', () => {
   }
 });
 
-document.getElementById('admin-login-cancel').addEventListener('click', () => {
+document.getElementById('admin-login-cancel')?.addEventListener('click', () => {
   document.getElementById('modal-admin-login').classList.add('hidden');
 });
 
 // Allow pressing Enter in password field to submit
-document.getElementById('admin-pass').addEventListener('keydown', e => {
+document.getElementById('admin-pass')?.addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('btn-admin-submit').click();
 });
 
-document.getElementById('btn-admin-submit').addEventListener('click', async () => {
+document.getElementById('btn-admin-submit')?.addEventListener('click', async () => {
   const email = document.getElementById('admin-email').value.trim();
   const pass  = document.getElementById('admin-pass').value;
   const errEl = document.getElementById('admin-login-error');
@@ -571,7 +571,7 @@ document.getElementById('btn-admin-submit').addEventListener('click', async () =
   }
 });
 
-document.getElementById('btn-admin-logout').addEventListener('click', () => {
+document.getElementById('btn-admin-logout')?.addEventListener('click', () => {
   adminLoggedIn = false;
   document.getElementById('nav-admin').classList.add('hidden');
   document.getElementById('btn-admin-header').textContent = '🔑 Admin';
@@ -750,7 +750,7 @@ function toggleFAQ(i) {
 // Support — Contact Form
 // ============================================================
 
-document.getElementById('support-form').addEventListener('submit', async e => {
+document.getElementById('support-form')?.addEventListener('submit', async e => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.target));
   const btn  = e.target.querySelector('[type="submit"]');
@@ -814,7 +814,7 @@ async function loadDeviceList() {
   }).join('');
 }
 
-document.getElementById('btn-show-form').addEventListener('click', async () => {
+document.getElementById('btn-show-form')?.addEventListener('click', async () => {
   document.getElementById('register-form').classList.remove('hidden');
 
   let products = PRODUCTS;
@@ -831,12 +831,12 @@ document.getElementById('btn-show-form').addEventListener('click', async () => {
   } catch (e) {}
 });
 
-document.getElementById('btn-cancel-form').addEventListener('click', () => {
+document.getElementById('btn-cancel-form')?.addEventListener('click', () => {
   document.getElementById('register-form').classList.add('hidden');
   document.getElementById('device-form').reset();
 });
 
-document.getElementById('device-form').addEventListener('submit', async e => {
+document.getElementById('device-form')?.addEventListener('submit', async e => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.target));
   const res  = await fetch('/api/devices', {
