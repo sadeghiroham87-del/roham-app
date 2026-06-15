@@ -193,11 +193,8 @@ function updateDeviceCards(devices) {
     }
 
     // Power state
-    const powerState  = getPowerState(d.id);
-    const offOverlay  = document.getElementById('offline-' + d.id);
-    if (offOverlay) offOverlay.classList.toggle('hidden', powerState !== 'off');
-
-    const powerBtn = document.getElementById('btn-power-' + d.id);
+    const powerState = getPowerState(d.id);
+    const powerBtn   = document.getElementById('btn-power-' + d.id);
     if (powerBtn) {
       powerBtn.textContent = powerState === 'on' ? '⏻ ON' : '⏻ OFF';
       powerBtn.className   = 'ctrl-btn ' + (powerState === 'on' ? 'ctrl-power-on' : 'ctrl-power-off');
@@ -238,13 +235,6 @@ function deviceCardHTML(d) {
 
   return `
     <div class="device-card ${cardClass}" id="card-${d.id}">
-
-      <!-- Offline overlay — shown when output is toggled OFF -->
-      <div class="card-offline-overlay ${powerState === 'off' ? '' : 'hidden'}" id="offline-${d.id}">
-        <div class="offline-icon">⏻</div>
-        <div class="offline-label">Output Disabled</div>
-        <button class="btn btn-primary" style="margin-top:10px;font-size:13px;" onclick="handlePowerToggle('${d.id}')">Turn On</button>
-      </div>
 
       <div class="card-header">
         <div>
