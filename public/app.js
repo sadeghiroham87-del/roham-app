@@ -32,6 +32,16 @@ function setCoolingOverride(deviceId, v) { LS.set('cool_' + deviceId, v); }
 function getSchedules(deviceId)         { return LS.get('sched_' + deviceId) || []; }
 function setSchedules(deviceId, list)   { LS.set('sched_' + deviceId, list); }
 
+// When output is off the battery can only receive charge, never discharge.
+// We snapshot the SOC at turn-off time and increase it at 0.4%/min client-side
+// so the percentage always goes UP, independent of the server's sine-wave simulation.
+function getOffChargingSOC(deviceId, serverSOC) {
+  const snap = LS.get('offSnap_' + deviceId);
+  if (!snap) return serverSOC;
+  const minutesPassed = (Date.now() - snap.time) / 60000;
+  return Math.min(100, Math.round((snap.soc + minutesPassed * 0.4) * 10) / 10);
+}
+
 // Cache the latest devices array so in-place updaters can call it from outside the poll loop
 let lastDevices = [];
 
@@ -167,17 +177,22 @@ function updateDeviceCards(devices) {
       return;
     }
 
+    // When output is off, battery can only charge — override server values
+    const effPower   = getPowerState(d.id);
+    const displaySOC = effPower === 'off' ? getOffChargingSOC(d.id, r.soc) : r.soc;
+    const displayChrg = effPower === 'off' ? true : r.isCharging;
+
     // SOC bar and number
     const fill = document.getElementById('soc-fill-' + d.id);
     const num  = document.getElementById('soc-val-'  + d.id);
-    if (fill) { fill.style.width = r.soc + '%'; fill.className = 'soc-fill ' + socClass(r.soc); }
-    if (num)  num.textContent = r.soc + '%';
+    if (fill) { fill.style.width = displaySOC + '%'; fill.className = 'soc-fill ' + socClass(displaySOC); }
+    if (num)  num.textContent = displaySOC + '%';
 
     // Charging label
     const chEl = document.getElementById('charging-' + d.id);
     if (chEl) {
-      chEl.textContent = r.isCharging ? '⚡ Charging' : '↓ Discharging';
-      chEl.className   = 'charging-status ' + (r.isCharging ? 'charging' : 'discharging');
+      chEl.textContent = displayChrg ? '⚡ Charging' : '↓ Discharging';
+      chEl.className   = 'charging-status ' + (displayChrg ? 'charging' : 'discharging');
     }
 
     // Metric values
@@ -228,10 +243,12 @@ function deviceCardHTML(d) {
 
   const cardClass  = r.status === 'critical' ? 'has-crit' : r.status === 'warning' ? 'has-warn' : '';
   const tempColor  = r.temperature > 42 ? 'var(--red)' : r.temperature > 36 ? 'var(--amber)' : '';
-  const powerState = getPowerState(d.id);
-  const override   = getCoolingOverride(d.id);
-  const coolActive = override === 'force-on' || (override === 'auto' && r.coolingActive);
-  const safeName   = d.name.replace(/'/g, "\\'");
+  const powerState  = getPowerState(d.id);
+  const override    = getCoolingOverride(d.id);
+  const coolActive  = override === 'force-on' || (override === 'auto' && r.coolingActive);
+  const safeName    = d.name.replace(/'/g, "\\'");
+  const displaySOC  = powerState === 'off' ? getOffChargingSOC(d.id, r.soc) : r.soc;
+  const displayChrg = powerState === 'off' ? true : r.isCharging;
 
   return `
     <div class="device-card ${cardClass}" id="card-${d.id}">
@@ -246,13 +263,13 @@ function deviceCardHTML(d) {
 
       <div class="soc-block">
         <div class="soc-row">
-          <span class="soc-number" id="soc-val-${d.id}">${r.soc}%</span>
-          <span class="charging-status ${r.isCharging ? 'charging' : 'discharging'}" id="charging-${d.id}">
-            ${r.isCharging ? '⚡ Charging' : '↓ Discharging'}
+          <span class="soc-number" id="soc-val-${d.id}">${displaySOC}%</span>
+          <span class="charging-status ${displayChrg ? 'charging' : 'discharging'}" id="charging-${d.id}">
+            ${displayChrg ? '⚡ Charging' : '↓ Discharging'}
           </span>
         </div>
         <div class="soc-track">
-          <div class="soc-fill ${socClass(r.soc)}" id="soc-fill-${d.id}" style="width:${r.soc}%"></div>
+          <div class="soc-fill ${socClass(displaySOC)}" id="soc-fill-${d.id}" style="width:${displaySOC}%"></div>
         </div>
       </div>
 
@@ -362,6 +379,8 @@ function handlePowerToggle(deviceId) {
           body:    JSON.stringify({ action: 'off' })
         });
         if (res.ok) {
+          const snapSOC = lastDevices.find(x => x.id === deviceId)?.latestReading?.soc || 50;
+          LS.set('offSnap_' + deviceId, { soc: snapSOC, time: Date.now() });
           setPowerState(deviceId, 'off');
           showToast(`${name} output disabled`, 'error');
           updateDeviceCards(lastDevices);
@@ -376,6 +395,7 @@ function handlePowerToggle(deviceId) {
       body:    JSON.stringify({ action: 'on' })
     }).then(res => {
       if (res.ok) {
+        LS.set('offSnap_' + deviceId, null);
         setPowerState(deviceId, 'on');
         showToast(`${name} output enabled`, 'success');
         updateDeviceCards(lastDevices);
